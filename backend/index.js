@@ -1,95 +1,139 @@
 const express = require('express')
 const app = express();
 const port = 3000
+const db = require('./connection')
+const response = require('./response');
 
 app.use(express.json())
 
-let posts = [
-    { id: 1, title: 'Belajar Express', content: 'Express itu mudah dan cepat!' },
-    { id: 2, title: 'Hari Ini', content: 'Cuaca cerah sekali di Jakarta.' }
-]
-
 // get all posts
 app.get('/api/posts', (req, res) => {
-    res.json({
-        status: 'success',
-        data: posts
+    const sql = 'SELECT * FROM posts'
+
+    db.query(sql, (error, result) => {
+        console.log(result)
+        response(200, 'Data berhasil diambil', result, res)
+
     })
 })
 
-// create new post
-app.post('/api/posts', (req, res) => {
-    const { title, content } = req.body
+// get single post by id
+app.get('/api/posts/:id', (req, res) => {
+    // Gunakan prepared statement untuk mencegah SQL Injection
+    const sql = `SELECT * FROM posts WHERE id = ?`
+    const postId = req.params.id;
 
+    db.query(sql, [postId], (err, result) => {
+        if (err) {
+            return res.status(500).json({ status: 'error', message: 'Kesalahan server' });
+        }
+        if (result.length === 0) {
+            return res.status(404).json({ status: 'fail', message: 'Post tidak ditemukan!' });
+        }
+        response(200, 'Data berhasil diambil', result[0], res)
+    })
+})
+
+// Create New Post
+app.post('/api/posts', (req, res) => {
+    const { title, content, author } = req.body;
+    const sql = `INSERT INTO posts (title, content, author) VALUES (?, ?, ?)`;
+    const values = [title, content, author];
+
+    // validasi
     if (!title || !content) {
         return res.status(400).json({
             status: 'error',
-            message: 'Title dan content harus diisi'
-        })
+            message: 'Judul dan konten harus diisi'
+        });
     }
 
-    const newPost = {
-        id: posts.length + 1,
-        title,
-        content
-    }
+    db.query(sql, values, (err, result) => {
+        if (err) {
+            return res.status(500).json({ status: 'error', message: 'Gagal menyimpan data ke database' });
+        }
+        const newPost = {
+            id: result.insertId,
+            title,
+            content,
+            author
+        };
+        response(201, 'Post berhasil dibuat', newPost, res);
+    });
+});
 
-    posts.push(newPost)
-    res.status(201).json({
-        status: 'success',
-        data: newPost
+// update post
+app.put('/api/posts/:id', (req, res) => {
+    const { id } = req.params;
+    const { title, content, author } = req.body;
+    console.log(req.body)
+
+    const sql = `UPDATE posts SET title = ?, content = ?, author = ? WHERE id = ?`;
+    const values = [title, content, author, id]
+
+    db.query(sql, values, (err, result) => {
+        if (err) {
+            return res.status(500).json({ status: 'error', message: 'Gagal update data' });
+        }
+
+        if (result.affectedRows === 0) {
+            return res.status(404).json({ status: 'fail', message: 'Post tidak ditemukan!' });
+        }
+
+        const data = {
+            id,
+            title,
+            content,
+            author
+        }
+        response(200, 'Post Updated Successfully', data, res)
     })
 })
 
-app.put('/api/posts/:id', (req, res) => {
-    const postId = parseInt(req.params.id);
-    const { title, content } = req.body;
-
-    const postIndex = posts.findIndex(p => p.id === postId);
-
-    if (postIndex === -1) {
-        return res.status(404).json({
-            status: 'fail',
-            message: 'Post tidak ditemukan!'
-        });
-    }
-
-    // Update data
-    posts[postIndex] = {
-        ...posts[postIndex],
-        title: title || posts[postIndex].title,
-        content: content || posts[postIndex].content
-    };
-
-    res.json({
-        status: 'success',
-        data: posts[postIndex]
-    });
-});
-
+// delete post
 
 app.delete('/api/posts/:id', (req, res) => {
-    const postId = parseInt(req.params.id);
-    const postIndex = posts.findIndex(p => p.id === postId);
+    const { id } = req.params;
+    const sql = `DELETE FROM posts WHERE id = ?`;
 
-    if (postIndex === -1) {
-        return res.status(404).json({
-            status: 'fail',
-            message: 'Post tidak ditemukan!'
-        });
-    }
+    db.query(sql, [id], (err, result) => {
+        if (err) {
+            return res.status(500).json({ status: 'error', message: 'Gagal menghapus data' });
+        }
 
-    // Hapus data dari array
-    const deletedPost = posts.splice(postIndex, 1);
+        if (result.affectedRows === 0) {
+            return res.status(404).json({ status: 'fail', message: 'Post tidak ditemukan!' });
+        }
 
-    res.json({
-        status: 'success',
-        message: 'Post berhasil dihapus',
-        data: deletedPost[0]
-    });
-});
+        response(200, 'Post berhasil dihapus', { id }, res);
+    })
+})
 
+// app.delete('/api/posts/:id', (req, res) => {
+//     const postId = req.params.id;
+//     const sql = `DELETE FROM posts WHERE id = ?`;
 
+//     db.query(sql, [postId], (err, result) => {
+//         if (err) {
+//             return res.status(500).json({ status: 'error', message: 'Gagal menghapus data' });
+//         }
+//         if (result.affectedRows === 0) {
+//             return res.status(404).json({ status: 'fail', message: 'Post tidak ditemukan!' });
+//         }
+//         res.json({
+//             status: 'Success',
+//             message: 'Post berhasil dihapus'
+//         });
+//     });
+// });
+
+app.post('/api/login', (req, res) => {
+    console.log(req.body)
+    res.send({
+        status: 'Success',
+        message: 'Login Berhasil'
+    })
+})
 
 app.get('/', (req, res) => {
     res.send('Hello World!')
