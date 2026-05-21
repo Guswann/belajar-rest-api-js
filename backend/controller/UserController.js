@@ -54,5 +54,9 @@ exports.login = async (req, res) => {
 }
 
 exports.logout = async (req, res) => {
-
+    try {
+        return response(200, 'Logout Success', null, res)
+    } catch (error) {
+        return response(500, 'Logout Failed', null, res)
+    }
 }

@@ -18,7 +18,7 @@ const Users = require('./model/UserModel')
 const db = require('./connection');
 const { configDotenv } = require('dotenv');
 
-app.use('/categories', categoryRoutes)
+app.use('/api/categories', categoryRoutes)
 app.use('/api/posts', postRoutes)
 app.use('/api/auth', AuthRoutes)
 
